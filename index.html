@@ -1175,22 +1175,28 @@ function renderBranchOverview(){
       rows = rows.filter((r)=> (r.kind==="row"&&r.level===levelFilter) || (r.kind==="mean"&&String(r.name||"").indexOf(levelFilter)===0));
     }
     const hasLv = levelFilter==="all";
-    // 合计行也挂目标合计
+    // 小计/合计行挂对应范围的目标（勿把全公司目标套到「音乐合计」「总部」）
     const dataRows=rows.filter(r=>r.kind==="row");
+    const sumTargets=(pred)=>{
+      const xs=dataRows.filter(pred);
+      const resT=xs.reduce((s,x)=>s+(x.resT||0),0);
+      const amtT=xs.reduce((s,x)=>s+(x.amtT||0),0);
+      return {resT:resT||null, amtT:amtT?+amtT.toFixed(1):null};
+    };
     let list=withTotal(rows,true);
     list=list.map(r=>{
-      if(r.kind==="total"||r.name==="合计"){
-        const resT=dataRows.reduce((s,x)=>s+(x.resT||0),0);
-        const amtT=dataRows.reduce((s,x)=>s+(x.amtT||0),0);
-        return {
-          ...r,
-          resT: resT||null,
-          amtT: amtT?+amtT.toFixed(1):null,
-          resRate: resT? r.res27/resT : null,
-          amtRate: amtT? r.amt27/amtT : null
-        };
-      }
-      return r;
+      let t=null;
+      if(r.name==="合计") t=sumTargets(()=>true);
+      else if(r.name==="音乐合计") t=sumTargets(x=>/音乐/.test(x.name||""));
+      else if(r.name==="总部") t={resT:null, amtT:null}; // 目标表无「总部」行
+      if(!t) return r;
+      return {
+        ...r,
+        resT:t.resT,
+        amtT:t.amtT,
+        resRate:(t.resT && Number.isFinite(r.res27))? r.res27/t.resT : null,
+        amtRate:(t.amtT && Number.isFinite(r.amt27))? r.amt27/t.amtT : null
+      };
     });
     const title="分公司整体 · "+(levelFilter==="all"?"全部层级":levelFilter)+" · "+LAB[mode]+" · "+mon;
     return block(title, "含资源目标 / 业绩目标与完成比（无占比旁表）",
