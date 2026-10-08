@@ -1299,24 +1299,77 @@ function branchRowsHtml(rows, hasLv){
   return html;
 }
 
+function branchMeanRow(level, rows){
+  const n=rows.length||1;
+  const t=sumTotals(rows);
+  const y=(a,b)=>!b?(a?null:0):(a-b)/b;
+  const avg27=t.sign27?+(t.amt27/t.sign27).toFixed(1):0;
+  const avg26=t.sign26?+(t.amt26/t.sign26).toFixed(1):0;
+  const sr27=t.res27?t.sign27/t.res27:0, sr26=t.res26?t.sign26/t.res26:0;
+  const vr27=t.res27?t.visit27/t.res27:0, vr26=t.res26?t.visit26/t.res26:0;
+  return {
+    name:level+"均值", kind:"mean", level:"",
+    res27:t.res27/n, res26:t.res26/n, resYoy:y(t.res27/n, t.res26/n),
+    visit27:t.visit27/n, visit26:t.visit26/n, visitYoy:y(t.visit27/n, t.visit26/n),
+    sign27:+(t.sign27/n).toFixed(1), sign26:+(t.sign26/n).toFixed(1), signYoy:y(t.sign27/n, t.sign26/n),
+    amt27:+(t.amt27/n).toFixed(1), amt26:+(t.amt26/n).toFixed(1), amtYoy:y(t.amt27/n, t.amt26/n),
+    avg27, avg26, avgYoy:y(avg27,avg26),
+    signRate27:+(sr27*100).toFixed(1), signRate26:+(sr26*100).toFixed(1), signRateYoy:y(sr27,sr26),
+    rate27:+(vr27*100).toFixed(1), rate26:+(vr26*100).toFixed(1), rateYoy:y(vr27,vr26)
+  };
+}
+function assembleBranchRows(rowMap){
+  const groups=[
+    {level:"一层级", names:["北京CBD","北京海淀","上海"]},
+    {level:"二层级", names:["广州","深圳","杭州","成都","武汉","南京"]},
+    {level:"三层级", names:["郑州","重庆","西安","苏州"]},
+    {level:"一层级音乐", names:["北京音乐","上海音乐"]},
+    {level:"二层级音乐", names:["广州音乐","深圳音乐","杭州音乐","成都音乐"]}
+  ];
+  const out=[];
+  const music=[];
+  const dataRows=[];
+  for(const g of groups){
+    const rows=g.names.map(n=>rowMap[n]).filter(Boolean);
+    if(!rows.length) continue;
+    rows.forEach(r=>{ r.kind="row"; r.level=g.level; out.push(r); dataRows.push(r); });
+    if(/音乐/.test(g.level)) music.push(...rows);
+    out.push(branchMeanRow(g.level, rows));
+  }
+  if(music.length){
+    const tot=enrichTotRow(sumTotals(music));
+    out.push({...tot, name:"音乐合计", kind:"total"});
+  }
+  if(rowMap["总部"]){ rowMap["总部"].kind="row"; rowMap["总部"].level=rowMap["总部"].level||""; out.push(rowMap["总部"]); dataRows.push(rowMap["总部"]); }
+  const tot=enrichTotRow(sumTotals(dataRows));
+  out.push({...tot, name:"合计", kind:"total"});
+  if(rowMap["未分配"] && (rowMap["未分配"].res27||rowMap["未分配"].res26||rowMap["未分配"].amt27||rowMap["未分配"].amt26||rowMap["未分配"].sign27||rowMap["未分配"].visit27)){
+    rowMap["未分配"].kind="row";
+    out.push(rowMap["未分配"]);
+  }
+  return out;
+}
 function branchMonthRowsForPeriod(){
   const keys=periodLookupKeys();
   const lists=keys.map(k=>((D.branchMonth||{})[mode]||{})[k]).filter(a=>Array.isArray(a)&&a.length);
   if(!lists.length) return null;
-  if(lists.length===1) return lists[0];
   const by={};
   for(const list of lists){
     for(const r of list){
+      if(!r || r.kind==="mean" || r.kind==="total" || /合计|均值/.test(r.name||"")) continue;
       if(!by[r.name]) by[r.name]=[];
       by[r.name].push(r);
     }
   }
-  return Object.keys(by).map(n=>{
-    const row=mergeMetricRows(n, by[n]);
-    row.level=by[n][0].level||"";
+  const rowMap={};
+  for(const [n, arr] of Object.entries(by)){
+    const row=arr.length===1 ? {...arr[0], kind:"row", name:n} : mergeMetricRows(n, arr);
+    row.level=arr[0].level||"";
     row.kind="row";
-    return row;
-  });
+    rowMap[n]=row;
+  }
+  if(!Object.keys(rowMap).length) return null;
+  return assembleBranchRows(rowMap);
 }
 function renderBranchOverview(){
   const mon = periodLabel();
@@ -1347,7 +1400,7 @@ function renderBranchOverview(){
       };
     });
     const title="分公司整体 · "+(levelFilter==="all"?"全部层级":levelFilter)+" · "+LAB[mode]+" · "+mon;
-    return block(title, "9月按回款/有效资源/到访表；含资源目标 / 业绩目标与完成比",
+    return block(title, "多月按各月分公司加总（不含均值行相加）；合计=各分公司之和",
       '<div class="scroll"><table class="grid">'+branchHead(hasLv)+'<tbody>'+branchRowsHtml(list,hasLv)+'</tbody></table></div>');
   }
   if((isMonthAll() && quarter==="Q1") && (mode==="all"?D.official.branch:D.byDegree.branch[mode])){
