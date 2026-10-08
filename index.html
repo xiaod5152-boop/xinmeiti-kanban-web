@@ -112,7 +112,7 @@ table.share tr.tot td{background:#e4f1ea;font-weight:900}
 .sec-time{background:#f4f8fc;border-color:#c9daf0}
 .sec-time .month-filter button.on,.sec-time .tabs button.on{background:#dbeafe;border-color:#2563eb;color:#1d4ed8}
 #quarterFilter button{font-size:19px;padding:10px 24px;border-radius:10px;font-weight:900;min-width:68px}
-#monthFilter{justify-content:flex-start;align-items:center;gap:8px}
+#monthFilter{justify-content:flex-start;align-items:center;gap:8px;flex-wrap:wrap}
 #monthFilter button.mon-sum{
   border:0;background:transparent;border-radius:0;padding:2px 8px 2px 0;
   font-size:15px;font-weight:900;color:#64748b;cursor:pointer;
@@ -202,7 +202,7 @@ table.share-side{width:max-content}
     </div>
 
     <div class="sec sec-time" id="secTime">
-      <div class="sec-hd"><b>财季 / 月份</b><span style="font-weight:600;color:#64748b;font-size:12px;margin-left:8px">月份可多选累计</span></div>
+      <div class="sec-hd"><b>财季 / 月份</b><span style="font-weight:600;color:#64748b;font-size:12px;margin-left:8px">全年月份可多选累计（如 6+7+8+9 月）</span></div>
       <div class="month-filter show" id="quarterFilter" style="margin-bottom:6px">
         <button type="button" data-q="Q1" class="on">Q1</button>
         <button type="button" data-q="Q2">Q2</button>
@@ -708,13 +708,13 @@ const QUARTER_MONTHS={
   Q3:["12月","1月","2月"],
   Q4:["3月","4月","5月"]
 };
+const FY_MONTHS=["6月","7月","8月","9月","10月","11月","12月","1月","2月","3月","4月","5月"];
 
 function quarterMonths(){ return (QUARTER_MONTHS[quarter]||[]).slice(); }
 function isMonthAll(){ return !monthFilter || !monthFilter.length; }
 function selectedMonths(){
-  const mons=quarterMonths();
-  if(isMonthAll()) return mons;
-  return mons.filter(m=>monthFilter.includes(m));
+  if(isMonthAll()) return quarterMonths();
+  return FY_MONTHS.filter(m=>monthFilter.includes(m));
 }
 function periodLabel(){
   if(isMonthAll()) return quarter+"合计";
@@ -859,16 +859,18 @@ function sumTotals(rows){
 }
 
 function syncMonthFilterUi(){
-  const mons = quarterMonths();
   if(!Array.isArray(monthFilter)) monthFilter=[];
-  monthFilter=monthFilter.filter(m=>mons.includes(m));
-  if(monthFilter.length===mons.length) monthFilter=[];
+  monthFilter=monthFilter.filter(m=>FY_MONTHS.includes(m));
   const el=document.getElementById("monthFilter");
   if(!el) return;
   el.classList.add("show");
   const allOn=isMonthAll();
   el.innerHTML = '<button type="button" class="mon-sum'+(allOn?' on':'')+'" data-mon="all">'+quarter+'合计</button>'
-    + mons.map(m=>'<button type="button" data-mon="'+m+'"'+(allOn?'' :(monthFilter.includes(m)?' class="on"':''))+'>'+m+'</button>').join("");
+    + FY_MONTHS.map(m=>{
+      const on=!allOn && monthFilter.includes(m);
+      const muted=!hasPeriodData(m) && !on;
+      return '<button type="button" data-mon="'+m+'"'+(on?' class="on"':'')+(muted?' style="opacity:.42"':'')+'>'+m+'</button>';
+    }).join("");
   document.querySelectorAll("#quarterFilter button").forEach(b=>b.classList.toggle("on", b.dataset.q===quarter));
   const sec=document.getElementById("secTime");
   if(sec) sec.style.display="";
@@ -2352,22 +2354,23 @@ function render(){
 document.getElementById("mode").onclick=e=>{const b=e.target.closest("[data-m]"); if(!b)return; mode=b.dataset.m; renderKpis(); render();};
 document.getElementById("quarterFilter").onclick=e=>{
   const b=e.target.closest("[data-q]"); if(!b) return;
-  quarter=b.dataset.q; monthFilter=[]; render();
+  quarter=b.dataset.q;
+  monthFilter=(QUARTER_MONTHS[quarter]||[]).slice();
+  render();
 };
 document.getElementById("monthFilter").onclick=e=>{
   const b=e.target.closest("[data-mon]"); if(!b) return;
   const v=b.dataset.mon;
-  const mons=quarterMonths();
   if(v==="all"){ monthFilter=[]; render(); return; }
   if(!Array.isArray(monthFilter)) monthFilter=[];
   if(isMonthAll()){
-    monthFilter=[v];
+    const inQuarter=quarterMonths().includes(v);
+    monthFilter=inQuarter ? [v] : quarterMonths().concat([v]).filter((m,i,a)=>a.indexOf(m)===i);
   } else if(monthFilter.includes(v)){
     monthFilter=monthFilter.filter(x=>x!==v);
   } else {
-    monthFilter=mons.filter(m=>monthFilter.includes(m)||m===v);
+    monthFilter=FY_MONTHS.filter(m=>monthFilter.includes(m)||m===v);
   }
-  if(monthFilter.length===mons.length) monthFilter=[];
   render();
 };
 document.getElementById("tabsAxis").onclick=e=>{
