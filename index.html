@@ -679,6 +679,8 @@ const CH_DRILL_LABEL={detail:"渠道明细",branch:"分公司",grade:"在读年�
 const CS_DRILL_DIMS=["detail","channel","branch","benyan","grade","faculty","country","product"];
 const CS_DRILL_LABEL={detail:"成员明细",channel:"渠道明细",branch:"分公司",benyan:"申请学历",grade:"在读年级",faculty:"科系专业",country:"申请国家",product:"签约产品"};
 const EDU_ORDER=["申请本科","申请研究生","其他"];
+const PRODUCT_ORDER=["常规英研","常规美研","香港研究生","本科设计其他","全日制业务","常规美本","常规英本","研究生设计其他","爬藤业务","本科夏/冬校","日韩研究生","研究生音乐","本科音乐","研究生就业力","研究生夏/冬校","博士","香港本科","研究生英国音乐","日韩本科","常规英国"];
+const PRODUCT_HINT="签约数/金额来自「签约产品.xlsx」已归档回款（含续费）；无资源量、到访与26财同比。与整体有效资源签约口径不同。";
 /** 申本 / 申研 在读年级固定顺序（图二 / 图三） */
 const GRADE_BEN_ORDER=["高中毕业","高三","高二","高一","初三","初二及以下","其他"];
 const GRADE_YAN_ORDER=["大学毕业","大四","大三","大二","大一","在职","其他"];
@@ -1076,6 +1078,9 @@ function aggregateStruct(dimKey, modeKey){
   if(dimKey==="benyan"){
     const map=Object.fromEntries(rows.map(r=>[r.name,r]));
     rows=EDU_ORDER.filter(n=>map[n]).map(n=>map[n]);
+  } else if(dimKey==="product"){
+    const map=Object.fromEntries(rows.map(r=>[r.name,r]));
+    rows=PRODUCT_ORDER.filter(n=>map[n]).map(n=>map[n]).concat(rows.filter(r=>!PRODUCT_ORDER.includes(r.name)));
   } else {
     rows.sort((a,b)=>b.amt27-a.amt27||b.res27-a.res27);
   }
@@ -1180,7 +1185,7 @@ function gradeTwinBlock(title, colName, rows, opts){
   }).join("");
   right+=sharePair({...totS, name:"合计"},{cls:"tot"});
   return twinBlocks(
-    title, opts.hint||"指标",
+    title, opts.hint||(colName==="签约产品"?PRODUCT_HINT:"指标"),
     '<div class="scroll"><table class="grid">'+drillHead(colName,true,false)+'<tbody>'+left+'</tbody></table></div>',
     "占比 · "+colName,
     '<div class="scroll"><table class="grid share-side">'+shareHead(colName)+'<tbody>'+right+'</tbody></table></div>'
@@ -1882,9 +1887,6 @@ function normalizeStructRows(rows){
 /** 渠道部门下探：分公司 / 在读年级 / 科系专业 / 申请国家 / 签约产品 / 申请学历 */
 function renderChannelDeptDrill(deptKey){
   if(chDrill==="detail") return renderChannelDept(deptKey);
-  if(chDrill==="product"){
-    return block(deptKey+" · 签约产品 · 待接入","汇总表无「签约产品」字段",'<div style="padding:28px;text-align:center;color:#64748b">需要数据源增加签约产品字段后再接。</div>');
-  }
   if(!periodAvailable() && !(M.data.all&&M.data.all[periodKey()])){
     return block("暂无数据", periodKey()+" 尚无矩阵数据（当前已更新 6–9 月 / Q1–Q2）","");
   }
@@ -1939,6 +1941,9 @@ function renderChannelDeptDrill(deptKey){
       if(b.name==="其他") return -1;
       return (b.amt27||0)-(a.amt27||0)||(b.res27||0)-(a.res27||0);
     });
+  } else if(chDrill==="product"){
+    const map=Object.fromEntries(rows.map(r=>[r.name,r]));
+    rows=PRODUCT_ORDER.filter(n=>map[n]).map(n=>map[n]).concat(rows.filter(r=>!PRODUCT_ORDER.includes(r.name)));
   }
 
   const col=CH_DRILL_LABEL[chDrill]||chDrill;
@@ -1997,9 +2002,6 @@ function renderBenyanDim(){
 }
 
 function renderStructDim(){
-  if(dim==="product"){
-    return block("签约产品 · 待接入","汇总表无「签约产品」字段",'<div style="padding:28px;text-align:center;color:#64748b">需要数据源增加签约产品字段后再接。</div>');
-  }
   if(dim==="benyan") return renderBenyanDim();
   if(dim==="grade" && axis==="branch") return renderBranchGrade();
   if(dim==="faculty") return renderFacultyDim();
@@ -2250,7 +2252,7 @@ function csSquadDrillPack(squadKey){
   const packs=periodLookupKeys().map(pk=>(((src[mode]||{})[pk]||{})[squadKey])).filter(Boolean);
   if(!packs.length) return null;
   if(packs.length===1) return packs[0];
-  const dims=["channel","branch","benyan","grade","faculty","country"];
+  const dims=["channel","branch","benyan","grade","faculty","country","product"];
   const out={};
   for(const dim of dims){
     const by={};
@@ -2303,9 +2305,6 @@ function renderCsChannelDrill(title, rows){
   );
 }
 function renderCsSquadDrill(squadKey){
-  if(chDrill==="product"){
-    return block(squadKey+" · 签约产品 · 待接入","汇总表无「签约产品」字段",'<div style="padding:28px;text-align:center;color:#64748b">需要数据源增加签约产品字段后再接。</div>');
-  }
   const pack=csSquadDrillPack(squadKey);
   if(!pack) return block("暂无数据","无小组下探数据（缺少 新媒体-小组下探.js）","");
   const pk=periodLabel();
@@ -2369,6 +2368,9 @@ function renderCsSquadDrill(squadKey){
       if(b.name==="其他") return -1;
       return (b.amt27||0)-(a.amt27||0)||(b.res27||0)-(a.res27||0);
     });
+  } else if(chDrill==="product"){
+    const map=Object.fromEntries(rows.map(r=>[r.name,r]));
+    rows=PRODUCT_ORDER.filter(n=>map[n]).map(n=>map[n]).concat(rows.filter(r=>!PRODUCT_ORDER.includes(r.name)));
   }
   const col=CS_DRILL_LABEL[chDrill]||chDrill;
   return gradeTwinBlock(titleBase, col, rows);
