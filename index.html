@@ -3256,14 +3256,25 @@ function buildAdvisorRows(){
   const out=Object.values(bag)
     .filter(r=>r.res27||r.visit27||r.sign27||r.amt27)
     .map(r=>advisorMetricRow(r.branch, r.advisor, r));
-  out.sort((a,b)=>{
-    const ra=a.resSignRate, rb=b.resSignRate;
-    const aOk=ra!=null&&Number.isFinite(ra), bOk=rb!=null&&Number.isFinite(rb);
-    if(aOk&&bOk&&rb!==ra) return rb-ra;
-    if(aOk!==bOk) return aOk?-1:1;
-    return (b.amt27||0)-(a.amt27||0)||(b.res27||0)-(a.res27||0)||String(a.advisor).localeCompare(String(b.advisor),"zh");
-  });
+  out.sort(advisorDefaultSort);
   return out;
+}
+function advisorBranchTier(br){
+  if(br==="未分配"||br==="合计") return 2;
+  if(/音乐/.test(String(br||""))) return 1;
+  return 0;
+}
+function advisorRateSort(a,b){
+  const ra=a.resSignRate, rb=b.resSignRate;
+  const aOk=ra!=null&&Number.isFinite(ra), bOk=rb!=null&&Number.isFinite(rb);
+  if(aOk&&bOk&&rb!==ra) return rb-ra;
+  if(aOk!==bOk) return aOk?-1:1;
+  return (b.sign27||0)-(a.sign27||0)||(b.amt27||0)-(a.amt27||0)||(b.res27||0)-(a.res27||0)
+    ||String(a.advisor).localeCompare(String(b.advisor),"zh");
+}
+function advisorDefaultSort(a,b){
+  const d=advisorBranchTier(a.branch)-advisorBranchTier(b.branch);
+  return d||advisorRateSort(a,b);
 }
 function sortAdvisorBranches(names){
   const music=[], normal=[], tail=[];
@@ -3325,13 +3336,6 @@ function renderAdvisorBoard(){
   advNameF=advNameF.filter(v=>nameAllow.has(v));
   if(advBranchF.length) rows=rows.filter(r=>advBranchF.includes(r.branch));
   if(advNameF.length) rows=rows.filter(r=>advNameF.includes(r.advisor));
-  const rateSort=(a,b)=>{
-    const ra=a.resSignRate, rb=b.resSignRate;
-    const aOk=ra!=null&&Number.isFinite(ra), bOk=rb!=null&&Number.isFinite(rb);
-    if(aOk&&bOk&&rb!==ra) return rb-ra;
-    if(aOk!==bOk) return aOk?-1:1;
-    return (b.sign27||0)-(a.sign27||0)||(b.amt27||0)-(a.amt27||0)||(b.res27||0)-(a.res27||0);
-  };
   const splitByBranch=advBranchF.length>=2;
   const branchOrder=splitByBranch
     ? sortAdvisorBranches(advBranchF.slice())
@@ -3375,14 +3379,14 @@ function renderAdvisorBoard(){
   let body="";
   if(splitByBranch){
     for(const br of branchOrder){
-      const list=rows.filter(r=>r.branch===br).slice().sort(rateSort);
+      const list=rows.filter(r=>r.branch===br).slice().sort(advisorRateSort);
       if(!list.length) continue;
       body+='<tr class="group"><td colspan="8">'+br+'</td></tr>'
         +list.map(advisorRowHtml).join("")
         +advisorSubTot(br+" 小计", list);
     }
   } else {
-    rows.sort(rateSort);
+    rows.sort(advisorDefaultSort);
     body=rows.map(advisorRowHtml).join("");
   }
   const tot={
