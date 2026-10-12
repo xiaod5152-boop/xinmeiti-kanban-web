@@ -173,10 +173,14 @@ table.grid th.adv-th .adv-th-multi{
 table.grid th.adv-th .adv-th-multi>summary{
   list-style:none;cursor:pointer;padding:8px 10px;font-size:14px;color:#0f172a;
   display:flex;align-items:center;gap:6px;min-height:40px;box-sizing:border-box;
+  border:2px solid #cbd5e1;border-radius:8px;
 }
 table.grid th.adv-th .adv-th-multi>summary::-webkit-details-marker{display:none}
 table.grid th.adv-th .adv-th-multi>summary::after{content:"▾";margin-left:auto;color:#64748b;font-size:12px}
 table.grid th.adv-th .adv-th-multi[open]>summary::after{content:"▴"}
+table.grid th.adv-th .adv-th-multi.has-pick>summary{
+  border-color:#ea580c;background:#fff7ed;color:#9a3412;
+}
 table.grid th.adv-th .adv-th-checks{
   position:absolute;z-index:20;left:0;right:0;top:100%;margin-top:2px;
   max-height:260px;overflow:auto;padding:6px 8px 8px;border:1px solid #cbd5e1;
@@ -192,12 +196,6 @@ table.grid th.adv-th .adv-th-checks label:has(input:checked){
   background:#ffedd5;border-color:#fb923c;color:#9a3412;font-weight:800;
 }
 table.grid th.adv-th .adv-th-checks input{width:18px;height:18px;accent-color:#c2410c;margin:0;cursor:pointer}
-table.grid th.adv-th .adv-th-multi>summary{
-  border:2px solid #cbd5e1;
-}
-table.grid th.adv-th .adv-th-multi.has-pick>summary{
-  border-color:#ea580c;background:#fff7ed;color:#9a3412;
-}
 .sec-dim{background:#f3faf6;border-color:#b7d8c8}
 .sec-dim .tabs button.on{background:#d1fae5;border-color:#0f766e;color:#065f46}
 .sec-dim .ch-drill-wrap{margin-top:8px;padding-top:8px;border-top:1px dashed #c6ddd1;text-align:left}
